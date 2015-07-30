@@ -1,21 +1,21 @@
 """a simple rubber band line drawing interface to demo pyeezl
 """
 
-from pyeezl import eezl
+from pyeezl.eezl import Eezl
 
 class Point:
     """simple point class for demo
     """
 
-    def __init__(self, y=0.0, x=0.0):
-        self.y = y
+    def __init__(self, x=0.0, y=0.0):
         self.x = x
+        self.y = y
 
     def __str__(self):
-        return "Point( y={:.1f}, x={:.1f} )".format(self.y, self.x)
+        return "Point( {:.1f}, {:.1f} )".format(self.x, self.y)
 
     def __iter__(self):
-        for c in (self.y, self.x):
+        for c in (self.x, self.y):
             yield c
 
 
@@ -34,83 +34,69 @@ class Line:
         for p in (self.first, self.last):
             yield p
 
+class Bands( Eezl ):
 
-def main():
+    def __init__( self, width, height ):
+        Eezl.__init__( self, width, height, "rubber bands" )
 
-    # open eezl window
-    ez = eezl.Eezl(400, 400, 'rubber bands') 
-    print("created new eezl!")
+        # create some variables to track state
+        self.pressed_flag = False # boolean to track pointer state
+        self.band = None # track current rubber band state
+        self.lines = [] # list of lines created so far
 
-    # create some variables to track state
-    pressed_flag = False # boolean pointer pressed flag to track pointer state
-    band = None # track current rubber band state
-    lines = [] # list of lines created so far
+        # set up variables to control visual appearance
+        self.bg_clr = [1.0, 1.0, 1.0, 1.0]
+        self.line_wt = 10.0
+        self.line_clr = [1.0, 0.0, 0.0, 0.6]
+        self.band_wt = 6.0
+        self.band_clr = [0.0, 0.0, 0.0, 0.4]
 
-    # set up variables to control visual appearance
-    bg_clr = [1.0, 1.0, 1.0, 1.0]
-    line_wt = 10.0
-    line_clr = [1.0, 0.0, 0.0, 0.6]
-    band_wt = 6.0
-    band_clr = [0.0, 0.0, 0.0, 0.4]
+    def on_gel( self, g ): # draw window contents to gel
 
-    # mainloop
-    while True:
+        # draw background
+        g.set_color(*self.bg_clr)
+        g.coat()
 
-        # block until event is pulled from queue
-        event = ez.eventq.get() 
+        # draw lines
+        g.set_weight(self.line_wt)
+        g.set_color(*self.line_clr)
+        for l in self.lines:
+            g.jump_to(*l.first) # moves cursor without adding to path
+            g.ray_to(*l.last) # also adds straight segment to path
+            g.stroke() # stroke path with current weight and color
+            g.shake() # clear path & return cursor to (0.0, 0.0)
 
-        print( "got event {0} flavor {0.flavor}".format(event) )
+        # if pointer pressed draw band
+        if self.pressed_flag:
+            g.set_weight(self.band_wt)
+            g.set_color(*self.band_clr)
+            g.jump_to(*self.band.first)
+            g.ray_to(*self.band.last)
+            g.stroke() # stroke path with current weight and color
+            g.shake() # clear path
 
-        # start a new rubber band when pointer is pressed
-        if event.flavor == eezl.POINTER_PRESS:
-            pressed_flag = True
-            band = Line( Point(event.y, event.x), Point(event.y, event.x) )
+    def on_pointer_press( self, x, y ):
+        self.pressed_flag = True
+        self.band = Line( Point(x, y), Point(x, y) )
 
-        # move the end of band when pointer is moved
-        elif event.flavor == eezl.POINTER_MOTION:
-            if pressed_flag:
-                band.last = Point( event.y, event.x )
-                ez.stain() # trigger eezl redraw when band changes
+    def on_pointer_motion( self, x, y ):
+        if self.pressed_flag:
+            self.band.last = Point( x, y )
+            self.stain() # trigger eezl redraw when band changes
 
-        # append current band to list of lines when pointer is released
-        elif event.flavor == eezl.POINTER_RELEASE:
-            lines.append(band)
-            pressed_flag = False
-            ez.stain() # trigger eezl redraw when band is released
+    def on_pointer_release( self, x, y ):
+        if self.band is not None:
+            self.lines.append( self.band )
+        self.pressed_flag = False
+        self.stain() # trigger eezl redraw when band is released
 
-        elif event.flavor == eezl.KEY_PRESS:
-            print( event )
+    def on_key_press( self, key ):
+        print( "key pressed: {}".format(key) )
 
-        elif event.flavor == eezl.FRESH_GEL:
-            g = event.gel # get gel to draw to
-
-            # draw background
-            g.set_color(*bg_clr)
-            g.coat()
-
-            # draw lines
-            g.set_weight(line_wt)
-            g.set_color(*line_clr)
-            for l in lines:
-                g.jump_to(*l.first) # moves cursor without adding to path
-                g.ray_to(*l.last) # also adds straight segment to path
-                g.stroke() # stroke path with current weight and color
-                g.shake() # clear path & return cursor to (0.0, 0.0)
-
-            # if pointer pressed draw band
-            if pressed_flag:
-                g.set_weight(band_wt)
-                g.set_color(*band_clr)
-                g.jump_to(*band.first)
-                g.ray_to(*band.last)
-                g.stroke() # stroke path with current weight and color
-                g.shake() # clear path
-
-            # signal that gel is ready to render to screen
-            g.ship() # artists ship ;)
-
-        else:
-            print( "unfamiliar event flavor: '{!s}'!".format(event) )
 
 if __name__ == "__main__":
-    main()
+
+    ez = Bands( 400, 400 )
+    while not ez.should_quit():
+        ez.poll_events()
+    ez.quit()
