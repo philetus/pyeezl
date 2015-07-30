@@ -1,7 +1,7 @@
 """a simple rubber band line drawing interface to demo pyeezl
 """
 
-pyeezl import Eezl
+from pyeezl import eezl
 
 class Point:
     """simple point class for demo
@@ -38,7 +38,7 @@ class Line:
 def main():
 
     # open eezl window
-    ez = Eezl.Eezl(400, 400, 'rubber bands') 
+    ez = eezl.Eezl(400, 400, 'rubber bands') 
     print("created new eezl!")
 
     # create some variables to track state
@@ -59,53 +59,55 @@ def main():
         # block until event is pulled from queue
         event = ez.eventq.get() 
 
+        print( "got event {0} flavor {0.flavor}".format(event) )
+
         # start a new rubber band when pointer is pressed
-        if event.flavor == Eezl.POINTER_PRESS:
+        if event.flavor == eezl.POINTER_PRESS:
             pressed_flag = True
             band = Line( Point(event.y, event.x), Point(event.y, event.x) )
 
         # move the end of band when pointer is moved
-        elif event.flavor == Eezl.POINTER_MOTION:
+        elif event.flavor == eezl.POINTER_MOTION:
             if pressed_flag:
                 band.last = Point( event.y, event.x )
                 ez.stain() # trigger eezl redraw when band changes
 
         # append current band to list of lines when pointer is released
-        elif event.flavor == Eezl.POINTER_RELEASE:
+        elif event.flavor == eezl.POINTER_RELEASE:
             lines.append(band)
             pressed_flag = False
             ez.stain() # trigger eezl redraw when band is released
 
-        elif event.flavor == Eezl.KEY_PRESS:
+        elif event.flavor == eezl.KEY_PRESS:
             print( event )
 
-        elif event.flavor == Eezl.GEL:
-            gel = event.gel # get gel to draw to
+        elif event.flavor == eezl.FRESH_GEL:
+            g = event.gel # get gel to draw to
 
             # draw background
-            gel.set_color(*bg_clr)
-            gel.coat()
+            g.set_color(*bg_clr)
+            g.coat()
 
             # draw lines
-            gel.set_weight(line_wt)
-            gel.set_color(*line_clr)
+            g.set_weight(line_wt)
+            g.set_color(*line_clr)
             for l in lines:
-                gel.jump_to(*l.first) # moves cursor without adding to path
-                gel.ray_to(*l.last) # also adds straight segment to path
-                gel.stroke() # stroke path with current weight and color
-                gel.shake() # clear path & return cursor to (0.0, 0.0)
+                g.jump_to(*l.first) # moves cursor without adding to path
+                g.ray_to(*l.last) # also adds straight segment to path
+                g.stroke() # stroke path with current weight and color
+                g.shake() # clear path & return cursor to (0.0, 0.0)
 
             # if pointer pressed draw band
             if pressed_flag:
-                gel.set_weight(band_wt)
-                gel.set_color(*band_clr)
-                gel.jump_to(*band.first)
-                gel.ray_to(*band.last)
-                gel.stroke() # stroke path with current weight and color
-                gel.shake() # clear path
+                g.set_weight(band_wt)
+                g.set_color(*band_clr)
+                g.jump_to(*band.first)
+                g.ray_to(*band.last)
+                g.stroke() # stroke path with current weight and color
+                g.shake() # clear path
 
             # signal that gel is ready to render to screen
-            gel.ship() # artists ship ;)
+            g.ship() # artists ship ;)
 
         else:
             print( "unfamiliar event flavor: '{!s}'!".format(event) )
