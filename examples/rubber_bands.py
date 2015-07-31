@@ -53,6 +53,8 @@ class Bands( Eezl ):
 
     def on_gel( self, g ): # draw window contents to gel
 
+        print( "rendering gel at time {}".format(g.time) )
+
         # draw background
         g.set_color(*self.bg_clr)
         g.coat()

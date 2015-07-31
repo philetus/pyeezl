@@ -1,4 +1,4 @@
-import glfw
+from pyglfw import pyglfw as glfw
 from OpenGL import GL as gl
 from pynanovg import pynanovg as nvg
 import queue
@@ -23,12 +23,18 @@ class Eezl:
 
         self._stainq = queue.Queue( 1 ) # queue to signal for redraw
 
-        glfw.init()
-        self._win = glfw.create_window(
-            self._width, self._height, self._title, None, None )
+        # init glfw
+        if not glfw.init():
+            raise Exception("couldnt init glfw!")
 
-        glfw.make_context_current( self._win )
-        glfw.swap_interval( 1 )
+        # create window
+        self._win = glfw.Window(width, height, title)
+        if not self._win:
+            glfw.terminate()
+            raise Exception("couldnt create glfw window!")
+
+        self._win.make_current()
+        self._win.swap_interval( 1 ) # 0 -> go fast / 1 -> pause first
 
         self._nvg = nvg.Context()
 
@@ -39,12 +45,12 @@ class Eezl:
         gl.glEnable( gl.GL_BLEND )
         gl.glClearColor( *self._clear_color )
 
-        # register glfw callbacks
-        glfw.set_window_size_callback( self._win, self._on_resize )
-        glfw.set_window_close_callback( self._win, self._on_close )
-        glfw.set_key_callback( self._win, self._on_key )
-        glfw.set_mouse_button_callback( self._win, self._on_button )
-        glfw.set_cursor_pos_callback( self._win, self._on_pos )
+        # register glfw.window callbacks
+        self._win.set_window_size_callback( self._on_resize )
+        self._win.set_window_close_callback( self._on_close )
+        self._win.set_key_callback( self._on_key )
+        self._win.set_mouse_button_callback( self._on_button )
+        self._win.set_cursor_pos_callback( self._on_pos )
 
         # init window size
         self._on_resize( self._win, self._width, self._height )
@@ -60,14 +66,12 @@ class Eezl:
     def should_quit( self ):
         """check if eezl wants to quit
         """
-        if glfw.window_should_close( self._win ):
-            return True
-        return False
+        return self._win.should_close
 
     def quit( self ):
         """cleanup eezl window when finished
         """
-        glfw.destroy_window( self._win )
+        self._win.close()
         glfw.terminate()
 
     def stain( self ):
@@ -100,7 +104,7 @@ class Eezl:
     def _produce_gel( self ):
         """setup graphics context for gel and put it on event pipe
         """
-        glfw.make_context_current( self._win )
+        self._win.make_current()
 
         t = glfw.get_time()
         g = gel.Gel( self._nvg, self._width, self._height, t)
@@ -112,7 +116,7 @@ class Eezl:
         self.on_gel( g )
 
         self._nvg.endFrame()
-        glfw.swap_buffers( self._win )
+        self._win.swap_buffers()
 
     def _clear_screen( self ):
         gl.glClearColor( *self._clear_color )
@@ -121,50 +125,34 @@ class Eezl:
                     | gl.GL_STENCIL_BUFFER_BIT )
 
     def _on_resize( self, win, width, height ):
-        #assert self._win == win, "window arg doesnt match!"
-        if self._win != win:
-            print( "new win? {} -> {}".format(self._win, win) )
-            self._win = win
-
         self._width = width
         self._height = height
 
-        # set gl viewport to fill window
-        glfw.make_context_current( self._win )
-        fb = glfw.get_framebuffer_size( self._win )[0]
-        wb = glfw.get_window_size( self._win )[0]
-        self._px_ratio = fb / float(wb)
-        #w = max( self._width, 1.0 ) * self._px_ratio
-        #h = max( self._height, 1.0 ) * self._px_ratio
-        #gl.glViewport(0, 0, w, h)
+        # calculate pix ratio for when framebuffer != window
+        self._win.make_current()
+        self._px_ratio = ( self._win.framebuffer_size[0] 
+                           / float(self._win.size[0]) )
 
+        # signal for window redraw
         self.stain()
 
     def _on_close( self, win ):
-        #assert self._win == win, "window arg doesnt match!"
-
-        glfw.set_window_should_close( self._win, True )
+        self._win.should_close = True
 
     def _on_key( self, win, key, scancode, action, mods ):
-        #assert self._win == win, "window arg doesnt match!"
-        
         if action == glfw.PRESS:
             self.on_key_press( key )
         else:
             self.on_key_release( key )
 
     def _on_button( self, win, button, action, mods ):
-        #assert self._win == win, "window arg doesnt match!"
-
-        x, y = glfw.get_cursor_pos( self._win )
-        if action == glfw.PRESS:
+        x, y = self._win.cursor_pos
+        if action == self._win.PRESS:
             self.on_pointer_press(x, y)
         else:
             self.on_pointer_release(x, y)
 
     def _on_pos( self, win, x, y ):
-        #assert self._win == win, "window arg doesnt match!"
-
         self.on_pointer_motion(x, y)
 
 
