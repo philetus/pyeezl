@@ -51,31 +51,31 @@ class Bands( Eezl ):
         self.band_wt = 6.0
         self.band_clr = [0.0, 0.0, 0.0, 0.4]
 
-    def on_gel( self, g ): # draw window contents to gel
+    def on_draw( self, cel ): # draw window contents to cel
 
-        print( "rendering gel at time {}".format(g.time) )
+        print( "rendering cel at time {}".format(cel.time) )
 
         # draw background
-        g.set_color(*self.bg_clr)
-        g.coat()
+        cel.set_color(*self.bg_clr)
+        cel.coat()
 
         # draw lines
-        g.set_weight(self.line_wt)
-        g.set_color(*self.line_clr)
+        cel.set_weight(self.line_wt)
+        cel.set_color(*self.line_clr)
         for l in self.lines:
-            g.jump_to(*l.first) # moves cursor without adding to path
-            g.ray_to(*l.last) # also adds straight segment to path
-            g.stroke() # stroke path with current weight and color
-            g.shake() # clear path & return cursor to (0.0, 0.0)
+            cel.jump_to(*l.first) # moves cursor without adding to path
+            cel.ray_to(*l.last) # also adds straight segment to path
+            cel.stroke() # stroke path with current weight and color
+            cel.clear() # clear path & return cursor to (0.0, 0.0)
 
         # if pointer pressed draw band
         if self.pressed_flag:
-            g.set_weight(self.band_wt)
-            g.set_color(*self.band_clr)
-            g.jump_to(*self.band.first)
-            g.ray_to(*self.band.last)
-            g.stroke() # stroke path with current weight and color
-            g.shake() # clear path
+            cel.set_weight(self.band_wt)
+            cel.set_color(*self.band_clr)
+            cel.jump_to(*self.band.first)
+            cel.ray_to(*self.band.last)
+            cel.stroke() # stroke path with current weight and color
+            cel.clear() # clear path
 
     def on_pointer_press( self, x, y ):
         self.pressed_flag = True
@@ -84,13 +84,13 @@ class Bands( Eezl ):
     def on_pointer_motion( self, x, y ):
         if self.pressed_flag:
             self.band.last = Point( x, y )
-            self.stain() # trigger eezl redraw when band changes
+            self.redraw() # trigger eezl redraw when band changes
 
     def on_pointer_release( self, x, y ):
         if self.band is not None:
             self.lines.append( self.band )
         self.pressed_flag = False
-        self.stain() # trigger eezl redraw when band is released
+        self.redraw() # trigger eezl redraw when band is released
 
     def on_key_press( self, key ):
         print( "key pressed: {}".format(key) )
@@ -102,3 +102,4 @@ if __name__ == "__main__":
     while not ez.should_quit():
         ez.poll_events()
     ez.quit()
+    print( "bye" )

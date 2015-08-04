@@ -3,14 +3,9 @@ from OpenGL import GL as gl
 from pynanovg import pynanovg as nvg
 import queue
 import threading
-from pyeezl import gel
-
-# edge flavors
-OUTSIDE = 0
-INSIDE = 1
 
 class Eezl:
-    """
+    """ez easel window with gui events to support drawing frames to cels
     """
 
     def __init__( self, width, height, title='eezl' ):
@@ -59,7 +54,7 @@ class Eezl:
         glfw.poll_events()
         try:
             if self._stainq.get_nowait():
-                self._produce_gel()
+                self._on_draw()
         except queue.Empty:
             pass
 
@@ -74,7 +69,7 @@ class Eezl:
         self._win.close()
         glfw.terminate()
 
-    def stain( self ):
+    def redraw( self ):
         """send signal to redraw window
         """
         # if redraw has already been requested just return
@@ -83,7 +78,7 @@ class Eezl:
         except queue.Full:
             pass
 
-    def on_gel( self, g ):
+    def on_draw( self, cel ):
         pass
 
     def on_pointer_press( self, x, y ):
@@ -101,19 +96,19 @@ class Eezl:
     def on_key_release( self, key ):
         pass
 
-    def _produce_gel( self ):
-        """setup graphics context for gel and put it on event pipe
+    def _on_draw( self ):
+        """setup graphics context for canvas and call on_draw
         """
         self._win.make_current()
 
         t = glfw.get_time()
-        g = gel.Gel( self._nvg, self._width, self._height, t)
+        cel = Cel( self._nvg, self._width, self._height, t)
 
         self._clear_screen()
         self._nvg.beginFrame( self._width, self._height, self._px_ratio )
 
         # call draw handler
-        self.on_gel( g )
+        self.on_draw( cel )
 
         self._nvg.endFrame()
         self._win.swap_buffers()
@@ -134,13 +129,13 @@ class Eezl:
                            / float(self._win.size[0]) )
 
         # signal for window redraw
-        self.stain()
+        self.redraw()
 
     def _on_close( self, win ):
         self._win.should_close = True
 
     def _on_key( self, win, key, scancode, action, mods ):
-        if action == glfw.PRESS:
+        if action == self._win.PRESS:
             self.on_key_press( key )
         else:
             self.on_key_release( key )
@@ -154,5 +149,74 @@ class Eezl:
 
     def _on_pos( self, win, x, y ):
         self.on_pointer_motion(x, y)
+
+
+class Cel:
+    """a single frame to display in eezl window
+    """
+
+    def __init__( self, nvg, width, height, time ):
+        self._nvg = nvg
+        self.width = width
+        self.height = height
+        self.time = time
+
+    def jump_to( self, x, y ):
+        """moves cursor position to (y, x) without changing path
+        """
+        self._nvg.moveTo( x, y )
+
+    def ray_to( self, x, y ):
+        """moves cursor position to (y, x) and adds straight line to path
+        """
+        self._nvg.lineTo( x, y )
+
+    def bez_to( self, py, px, qy, qx, x, y ):
+        """adds bezier curve with control points (py, px) & (qy, qx) to path
+        """
+        self._nvg.bezierTo( self, px, py, qx, qy, x, y )
+
+    def coat( self ):
+        """fill entire cel with current color
+        """
+        self._nvg.beginPath()
+        self._nvg.rect( 0, 0, self.width, self.height )
+        self._nvg.fill()
+        self._nvg.beginPath()
+
+    def seal( self, hole=False ):
+        """close current subpath with straight line
+        """
+        winding = 1 # NVG_CCW
+        if hole:
+            winding = 2 # NVG_CW
+        self._nvg.pathWinding( winding )
+        self._nvg.closePath()
+
+    def stroke( self ):
+        """imprint a line to cel in current color & weight along path
+        """
+        self._nvg.stroke()
+
+    def fill( self ):
+        """imprint a shape to cel in current color inside path
+        """
+        self._nvg.fill()
+
+    def clear( self ):
+        """clear current path
+        """
+        self._nvg.beginPath()
+
+    def set_color( self, r=0.0, g=0.0, b=0.0, a=1.0 ):
+        """set current color to rgba value in range [0.0-1.0]
+        """
+        self._nvg.strokeColor( r, g, b, a )
+        self._nvg.fillColor( r, g, b, a )
+
+    def set_weight( self, weight ):
+        """set current line weight
+        """
+        self._nvg.strokeWidth( weight )
 
 
